@@ -114,8 +114,6 @@ async def register(auth_details: AuthDetails):
 @app.post('/login')
 async def login(auth_details: AuthToken):
 
-    print(str(cached_token[0]))
-
     if not auth_details.token or not str(cached_token[0]) == str(auth_details.token):
         raise HTTPException(status_code=401, detail='Invalid token')
     return auth_details.token

@@ -1,13 +1,21 @@
 import json
 from typing import Set, Union, List
+from datetime import datetime
 
-from fastapi import FastAPI
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.exceptions import HTTPException
 
+from fastapi import Body, status
+from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse, FileResponse
+
+
 app = FastAPI()
+items = {"foo": {"name": "Fighters", "size": 6}, "bar": {"name": "Tenders", "size": 3}}
+some_file_path = "large-video-file.mp4"
 
 
 class Item(BaseModel):
@@ -36,6 +44,7 @@ async def create_item(request: Request, response: Response):
 
     return request_data, response_data
 
+
 async def create_other_item(request: Request):
     raw_body = await request.body()
     try:
@@ -58,6 +67,51 @@ def magic_data_reader(raw_body: bytes):
             "description": "Just kiddin', no magic here. ✨",
         },
     }
+
+
+@app.get("/root")
+async def main():
+    return FileResponse(some_file_path)
+
+
+@app.get("/typer")
+async def redirect_typer():
+    return RedirectResponse("https://typer.tiangolo.com")
+
+
+@app.get("/items/", response_class=HTMLResponse)
+async def read_items():
+    return """
+    <html>
+        <head>
+            <title>Some HTML in here</title>
+        </head>
+        <body>
+            <h1>Look ma! HTML!</h1>
+        </body>
+    </html>
+    """
+
+
+@app.put("/items/{id}")
+def update_item(_id: str, item: Item):
+    json_compatible_item_data = jsonable_encoder(item)
+    print(_id)
+    return JSONResponse(content=json_compatible_item_data)
+
+
+@app.put("/items/{item_id}")
+async def upsert_item(item_id: str, name: Union[str, None] = Body(default=None),
+                      size: Union[int, None] = Body(default=None)):
+    if item_id in items:
+        item = items[item_id]
+        item["name"] = name
+        item["size"] = size
+        return item
+    else:
+        item = {"name": name, "size": size}
+        items[item_id] = item
+        return JSONResponse(status_code=status.HTTP_201_CREATED, content=item)
 
 
 @app.post("/items/", response_model=Item, summary="Create an item")
@@ -102,17 +156,13 @@ async def read_items():
         },
     },
 )
+def new_function():
+    ...
 
 
-
-@app.post(
-    "/items/",
-    openapi_extra={
-        "requestBody": {
-            "content": {"application/x-yaml": {"schema": Item.schema()}},
-            "required": True,
-        },
-    },
-)
+@app.post("/items/new/",
+          openapi_extra={"requestBody": {"content": {"application/x-yaml": {"schema": Item.schema()}},"required": True, }, }, )
+def new_function():
+    ...
 
 
